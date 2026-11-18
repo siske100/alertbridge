@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
 
-// Drop your real screenshots into public/guide/ as step1.png ... step5.png.
-// Until then, the drawn placeholder below is shown.
+const screenshots = import.meta.glob('../assets/guide/step*.png', { eager: true, query: '?url', import: 'default' })
+
 function Shot({ n, title, hint }) {
+  const screenshot = screenshots[`../assets/guide/step${n}.png`]
   return (<div className="shot">
-    <img src={`/guide/step${n}.png`} alt={title} onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'block' }} />
-    <svg viewBox="0 0 360 210" style={{ display: 'none' }} role="img" aria-label={title}>
+    {screenshot ? <img src={screenshot} alt={title} /> : <svg viewBox="0 0 360 210" role="img" aria-label={title}>
       <rect x="1" y="1" width="358" height="208" rx="10" fill="#16263D" stroke="#2A3F5E" />
       <circle cx="16" cy="16" r="4" fill="#E5675A" /><circle cx="30" cy="16" r="4" fill="#F2B84B" /><circle cx="44" cy="16" r="4" fill="#2BB5A0" />
       <rect x="20" y="40" width="150" height="10" rx="3" fill="#2A3F5E" />
@@ -14,7 +14,7 @@ function Shot({ n, title, hint }) {
       <rect x="28" y="115" width="140" height="8" rx="3" fill="#F2B84B" opacity=".7" />
       <rect x="20" y="152" width="110" height="34" rx="8" fill="#2BB5A0" />
       <text x="75" y="174" textAnchor="middle" fontSize="13" fontWeight="700" fill="#0F1B2D">{hint}</text>
-    </svg></div>)
+    </svg>}</div>)
 }
 
 function MarketPreview() {
