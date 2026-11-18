@@ -8,7 +8,29 @@ export default function Auth({ mode }) {
   const [qrCode, setQrCode] = useState(''), [secret, setSecret] = useState('')
   const [code, setCode] = useState('')
   const [passwordUpdated, setPasswordUpdated] = useState(false)
+  const [resetSession, setResetSession] = useState(null)
   const signup = mode === 'signup'
+
+  useEffect(() => {
+    if (mode !== 'update-password') return
+    let active = true
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return
+      if (error) {
+        setMsg(error.message || 'Could not verify the password reset link.')
+        setResetSession(false)
+        return
+      }
+      setResetSession(Boolean(data.session))
+    })
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) setResetSession(Boolean(session))
+    })
+    return () => {
+      active = false
+      data.subscription.unsubscribe()
+    }
+  }, [mode])
 
   async function startAdminMfa() {
     setBusy(true); setMsg('')
@@ -107,6 +129,9 @@ export default function Auth({ mode }) {
   async function updatePassword(e) {
     e.preventDefault(); setBusy(true); setMsg('')
     try {
+      const { data, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw sessionError
+      if (!data.session) throw new Error('This reset link is missing or expired. Request a new password reset link.')
       const { error } = await supabase.auth.updateUser({ password: pw })
       if (error) throw error
       const { error: signOutError } = await supabase.auth.signOut()
@@ -176,6 +201,13 @@ export default function Auth({ mode }) {
     <h1>Choose a new password</h1>
     {passwordUpdated
       ? <p className="note" role="status">Password updated. <Link to="/login">Log in</Link> with your new password.</p>
+      : resetSession === null
+        ? <p className="muted" role="status">Checking your reset link...</p>
+        : !resetSession
+          ? <>
+            <p className="note" role="alert">{msg || 'This reset link is missing or expired. Request a new one.'}</p>
+            <p className="muted"><Link to="/forgot-password">Request a new reset link</Link></p>
+          </>
       : <>
         <p className="muted">Enter a new password for your account.</p>
         <form onSubmit={updatePassword}>

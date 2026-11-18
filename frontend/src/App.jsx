@@ -9,6 +9,7 @@ export default function App() {
   const [session, setSession] = useState(undefined)
   const location = useLocation()
   const passwordRecovery = new URLSearchParams(location.search).get('reset-password') === '1'
+    || new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery'
   useEffect(() => {
     let active = true
     async function applySession(s) {
