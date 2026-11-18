@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: alertbridge-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    envVars: &env
+      - {key: SUPABASE_URL, sync: false}
+      - {key: SUPABASE_SERVICE_KEY, sync: false}
+      - {key: ENCRYPTION_KEY, sync: false}
+      - {key: HASH_SALT, sync: false}
+      - {key: FRONTEND_URL, sync: false}
+      - {key: PUBLIC_URL, sync: false}
+      - {key: CALLBACK_SECRET, sync: false}
+      - {key: DARAJA_BASE, sync: false}
+      - {key: MPESA_SHORTCODE, sync: false}
+      - {key: MPESA_PASSKEY, sync: false}
+      - {key: MPESA_CONSUMER_KEY, sync: false}
+      - {key: MPESA_CONSUMER_SECRET, sync: false}
+  - type: worker
+    name: alertbridge-worker
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/worker.js
+    envVars: *env
+  - type: web
+    name: alertbridge-site
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - {key: VITE_SUPABASE_URL, sync: false}
+      - {key: VITE_SUPABASE_ANON_KEY, sync: false}
+      - {key: VITE_API_URL, sync: false}
