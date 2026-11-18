@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard.jsx'
 export default function App() {
   const [session, setSession] = useState(undefined)
   const location = useLocation()
+  const passwordRecovery = new URLSearchParams(location.search).get('reset-password') === '1'
   useEffect(() => {
     let active = true
     async function applySession(s) {
@@ -38,7 +39,7 @@ export default function App() {
         ? <><Link to="/dashboard">Dashboard</Link><button className="link" onClick={() => supabase.auth.signOut()}>Log out</button></>
         : !session && <><Link to="/login">Log in</Link><Link to="/signup" className="btn sm">Start free trial</Link></>}</nav></header>
     <Routes>
-      <Route path="/" element={<Home session={session} />} />
+      <Route path="/" element={passwordRecovery ? <Auth mode="update-password" /> : <Home session={session} />} />
       <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Auth mode="login" />} />
       <Route path="/signup" element={session ? <Navigate to="/dashboard" /> : <Auth mode="signup" />} />
       <Route path="/forgot-password" element={<Auth mode="recovery" />} />
