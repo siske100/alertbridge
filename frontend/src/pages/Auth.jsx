@@ -7,6 +7,7 @@ export default function Auth({ mode }) {
   const [mfaStep, setMfaStep] = useState(''), [factorId, setFactorId] = useState('')
   const [qrCode, setQrCode] = useState(''), [secret, setSecret] = useState('')
   const [code, setCode] = useState('')
+  const [passwordUpdated, setPasswordUpdated] = useState(false)
   const signup = mode === 'signup'
 
   async function startAdminMfa() {
@@ -52,13 +53,13 @@ export default function Auth({ mode }) {
   }
 
   useEffect(() => {
-    if (signup || LOCAL_DEMO) return
+    if (mode !== 'login' || LOCAL_DEMO) return
     let active = true
     supabase.auth.getSession().then(({ data, error }) => {
       if (active && !error && isAdminEmail(data.session?.user.email)) startAdminMfa()
     })
     return () => { active = false }
-  }, [signup])
+  }, [mode])
 
   async function submit(e) {
     e.preventDefault(); setBusy(true); setMsg('')
@@ -77,7 +78,42 @@ export default function Auth({ mode }) {
         await startAdminMfa()
       }
     } catch (error) {
-      setMsg(error.message || 'Sign-in failed.')
+      const message = error.message || 'Sign-in failed.'
+      if (signup && message.toLowerCase().includes('already registered')) {
+        setMsg('This email already has an account. Log in or reset its password.')
+      } else if (!signup && message === 'Invalid login credentials') {
+        setMsg('Email or password is incorrect. If you forgot your password, use the reset link below.')
+      } else {
+        setMsg(message)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function requestPasswordReset(e) {
+    e.preventDefault(); setBusy(true); setMsg('')
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/update-password`
+      })
+      if (error) throw error
+      setMsg('If an account exists for this email, a password reset link has been sent.')
+    } catch (error) {
+      setMsg(error.message || 'Could not send a password reset link.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function updatePassword(e) {
+    e.preventDefault(); setBusy(true); setMsg('')
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw })
+      if (error) throw error
+      const { error: signOutError } = await supabase.auth.signOut()
+      if (signOutError) throw signOutError
+      setPasswordUpdated(true)
+    } catch (error) {
+      setMsg(error.message || 'Could not update your password. Request a new reset link.')
     } finally {
       setBusy(false)
     }
@@ -125,6 +161,31 @@ export default function Auth({ mode }) {
     <button className="link" onClick={() => supabase.auth.signOut()}>Cancel and log out</button>
   </main>
 
+  if (mode === 'recovery') return <main className="narrow">
+    <h1>Reset your password</h1>
+    <p className="muted">Enter the email address on your account and we will send a reset link.</p>
+    <form onSubmit={requestPasswordReset}>
+      <label>Email<input type="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>
+      <button className="btn wide" disabled={busy}>{busy ? 'Sending...' : 'Send reset link'}</button>
+    </form>
+    {msg && <p className="note" role="status">{msg}</p>}
+    <p className="muted"><Link to="/login">Back to login</Link></p>
+  </main>
+
+  if (mode === 'update-password') return <main className="narrow">
+    <h1>Choose a new password</h1>
+    {passwordUpdated
+      ? <p className="note" role="status">Password updated. <Link to="/login">Log in</Link> with your new password.</p>
+      : <>
+        <p className="muted">Enter a new password for your account.</p>
+        <form onSubmit={updatePassword}>
+          <label>New password<input type="password" required minLength={6} value={pw} onChange={e => setPw(e.target.value)} /></label>
+          <button className="btn wide" disabled={busy}>{busy ? 'Updating...' : 'Update password'}</button>
+        </form>
+        {msg && <p className="note" role="alert">{msg}</p>}
+      </>}
+  </main>
+
   return (<main className="narrow"><h1>{signup ? 'Create your account' : 'Welcome back'}</h1>
     <p className="muted">{signup ? '2 days free. No payment needed to start.' : 'Log in to see your alerts.'}</p>
     {LOCAL_DEMO
@@ -136,6 +197,6 @@ export default function Auth({ mode }) {
       <button className="btn wide" disabled={busy}>{signup ? 'Create account' : 'Log in'}</button>
     </form>
     {msg && <p className="note">{msg}</p>}
-    <p className="muted">{signup ? <>Have an account? <Link to="/login">Log in</Link></> : <>New here? <Link to="/signup">Create an account</Link></>}</p>
+    <p className="muted">{signup ? <>Have an account? <Link to="/login">Log in</Link> · <Link to="/forgot-password">Reset password</Link></> : <>New here? <Link to="/signup">Create an account</Link> · <Link to="/forgot-password">Forgot password?</Link></>}</p>
   </main>)
 }

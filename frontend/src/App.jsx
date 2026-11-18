@@ -41,6 +41,8 @@ export default function App() {
       <Route path="/" element={<Home session={session} />} />
       <Route path="/login" element={session ? <Navigate to="/dashboard" /> : <Auth mode="login" />} />
       <Route path="/signup" element={session ? <Navigate to="/dashboard" /> : <Auth mode="signup" />} />
+      <Route path="/forgot-password" element={<Auth mode="recovery" />} />
+      <Route path="/update-password" element={<Auth mode="update-password" />} />
       <Route path="/dashboard" element={session ? <Dashboard session={session} /> : <Navigate to="/login" />} />
     </Routes>
   </>)
