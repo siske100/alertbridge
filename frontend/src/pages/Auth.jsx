@@ -68,7 +68,11 @@ export default function Auth({ mode }) {
         : await supabase.auth.signInWithPassword({ email, password: pw })
       if (error) throw error
       if (signup) {
-        setMsg('Check your email to confirm your account, then log in.')
+        if (data.session && isAdminEmail(data.user?.email)) {
+          await startAdminMfa()
+        } else if (!data.session) {
+          setMsg('Account created, but email confirmation is still enabled in Supabase. Turn it off to sign in immediately.')
+        }
       } else if (isAdminEmail(data.user?.email)) {
         await startAdminMfa()
       }
