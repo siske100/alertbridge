@@ -40,10 +40,13 @@ async function check(c) {
 
 async function loop() {
   try {
-    const { data: ps } = await sb.from('profiles').select('id,is_admin,trial_ends_at,subscription_expires_at').eq('connected', true)
+    const { data: ps, error: profileError } = await sb.from('profiles')
+      .select('id,is_admin,trial_ends_at,subscription_expires_at').eq('connected', true)
+    if (profileError) throw profileError
     const ids = (ps || []).filter((p) => p.is_admin || active(p.subscription_expires_at) || active(p.trial_ends_at)).map((p) => p.id)
     if (ids.length) {
-      const { data: creds } = await sb.from('credentials').select('*').in('user_id', ids)
+      const { data: creds, error: credentialsError } = await sb.from('credentials').select('*').in('user_id', ids)
+      if (credentialsError) throw credentialsError
       for (let i = 0; i < creds.length; i += 10) await Promise.allSettled(creds.slice(i, i + 10).map(check))
     }
   } catch (e) { console.error('loop', e.message) }

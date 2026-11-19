@@ -30,7 +30,8 @@ async function uidFrom(req) {
   return { id: data.user.id, aal: claims.aal, methods }
 }
 async function profile(uid) {
-  const { data } = await sb.from('profiles').select('*').eq('id', uid).limit(1)
+  const { data, error } = await sb.from('profiles').select('*').eq('id', uid).limit(1)
+  if (error) throw error
   if (!data?.length) throw new HttpError(404, 'Profile not found.')
   return data[0]
 }
@@ -51,7 +52,9 @@ app.post('/api/connect', h(async (req, res) => {
   if (!p.is_admin && p.trial_ends_at && !paid && !trial) throw new HttpError(402, 'Your trial has ended. Subscribe to continue.')
 
   const gh = hsh(gmail), ch = hsh(chat_id)
-  const { data: dup } = await sb.from('credentials').select('user_id').or(`gmail_hash.eq.${gh},chat_hash.eq.${ch}`).neq('user_id', uid)
+  const { data: dup, error: duplicateCheckError } = await sb.from('credentials').select('user_id')
+    .or(`gmail_hash.eq.${gh},chat_hash.eq.${ch}`).neq('user_id', uid)
+  if (duplicateCheckError) throw duplicateCheckError
   if (dup?.length) throw new HttpError(409, 'This Gmail or Telegram chat is already linked to another account.')
 
   const pw = app_password.replace(/\s/g, '')
@@ -61,11 +64,13 @@ app.post('/api/connect', h(async (req, res) => {
   try { await tgSend(bot_token.trim(), chat_id.trim(), 'AlertBridge connected. Your TradingView alerts will arrive here.') }
   catch { throw new HttpError(400, 'Telegram test failed. Press Start on your bot, then check the token and chat ID.') }
 
-  await sb.from('credentials').upsert({ user_id: uid, gmail: gmail.trim(), app_password_enc: enc(pw),
+  const { error: saveError } = await sb.from('credentials').upsert({ user_id: uid, gmail: gmail.trim(), app_password_enc: enc(pw),
     bot_token_enc: enc(bot_token.trim()), chat_id: chat_id.trim(), gmail_hash: gh, chat_hash: ch })
+  if (saveError) throw saveError
   const upd = { connected: true }
   if (!p.is_admin && !p.trial_ends_at && !paid) upd.trial_ends_at = new Date(Date.now() + 2 * DAY).toISOString()
-  await sb.from('profiles').update(upd).eq('id', uid)
+  const { error: profileUpdateError } = await sb.from('profiles').update(upd).eq('id', uid)
+  if (profileUpdateError) throw profileUpdateError
   res.json({ ok: true })
 }))
 
